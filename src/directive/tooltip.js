@@ -7,9 +7,7 @@ function createTooltip () {
   const el = document.createElement('div')
   document.body.appendChild(el)
   const Tooltip2 = Vue.extend(Tooltip)
-  return new Tooltip2({
-    propsData: {}
-  }).$mount(el)
+  return new Tooltip2().$mount(el)
 }
 
 // 默认组件的位置显示
@@ -27,16 +25,19 @@ function setComponent (el) {
   tooltipCom.content = tooltipContent.get(el)
   // 显示和隐藏部分的逻辑从element源码中获取
   tooltipCom.referenceElm = el
+  tooltipCom.$refs.popper && (tooltipCom.$refs.popper.style.display = 'none');
   tooltipCom.doDestroy()
-  Vue.nextTick(() => {
-    tooltipCom.show()
-  })
+  // Vue.nextTick(() => {
+  tooltipCom.show()
+  // })
 }
 // 鼠标进入事件
 function enterEvent (el, binding) {
-  setAttribute(binding.modifiers)
-  setPlacement(binding)
-  setComponent(el)
+  if (binding.value || (el._eillipsis === undefined && (el._eillipsis = checkEillipsis(el))) || el._eillipsis) {
+    setAttribute(binding.modifiers)
+    setPlacement(binding)
+    setComponent(el)
+  }
 }
 
 // 鼠标移出事件 隐藏组件
@@ -69,6 +70,38 @@ function setAttribute (modifiers) {
   }
 }
 
+function getPadding (el) {
+  const style = window.getComputedStyle(el, null)
+  const pL = parseInt(style.paddingLeft) || 0
+  const pR = parseInt(style.paddingRight) || 0
+  const pT = parseInt(style.paddingTop) || 0
+  const pB = parseInt(style.paddingBottom) || 0
+  return {
+    pL, pR, pT, pB
+  }
+}
+
+function checkEillipsis (box) {
+  console.log('checkEillipsis')
+  const range = document.createRange()
+  range.setStart(box, 0)
+  range.setEnd(box, box.childNodes.length)
+  let rangeH = range.getBoundingClientRect().height
+  let rangeW = range.getBoundingClientRect().width
+  const { pT, pB, pL, pR } = getPadding(box)
+  const verticalPadding = pT + pB
+  const horizontalPadding = pL + pR
+  if (rangeH + verticalPadding > box.clientHeight) {
+    return true
+  } else {
+    if (rangeW + horizontalPadding > box.clientWidth) {
+      return true
+    } else {
+      return false
+    }
+  }
+}
+
 export default {
   bind: function (el, binding) { // 初始化设置
     // console.log([el], 'bind', binding)
@@ -85,6 +118,7 @@ export default {
     el.addEventListener('mouseleave', leaveEvent)
   },
   update: function (el, binding) { // 组件的 VNode 更新时调用
+    Vue.nextTick(() => el._eillipsis = checkEillipsis(el))
     const value = binding.value || el.innerText
     tooltipContent.set(el, value) // 重新设置value值
   },
